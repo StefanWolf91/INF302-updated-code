@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FloodReady – Yeronga Flood Alerts</title>
+  <style>
+    body    { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; }
+    #status { font-size: 1.3em; font-weight: bold; padding: 16px; border-radius: 8px; background: #eee; }
+    .safe   { background: #d4edda; color: #155724; }
+    .danger { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+
+  <h1>🌊 FloodReady</h1>
+  <p>Flood alerts for Yeronga, Brisbane</p>
+
+  <p><strong>Water level:</strong> <span id="level">–</span> metres</p>
+  <p><strong>Reading taken:</strong> <span id="time">–</span></p>
+  <div id="status">Checking…</div>
+
+  <script>
+    // =============================================================
+    // SETTINGS
+    // =============================================================
+
+    // 👉 ADD THE BOM API HERE
+    // Put the web address of your live data between the quotes.
+    // While it's empty (""), the app uses the SAMPLE DATA below instead.
+    const BOM_API_URL = "https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/telemetry-sensors-rainfall-and-stream-heights/records?order_by=measured%20desc&limit=20";
+
+    // The water level (in metres) where we warn residents.
+    // 1.7 m = "minor flooding" at the Brisbane River City Gauge (BOM station 540198).
+    // Check this against BOM's current flood levels before presenting.
+    const DANGER_LEVEL = 1.7;
+
+    // How often to check, in minutes. BOM updates about every 10 minutes.
+    const CHECK_EVERY_MINUTES = 10;
+
+    // SAMPLE DATA: pretend reply from the API, laid out like BOM's JSON.
+    // To test the alert, change 2.1 to a number below or above DANGER_LEVEL.
+    const SAMPLE_DATA = {
+      "observations": {
+        "data": [
+          { "water_level_m": 2.1 }
+        ]
+      }
+    };
+
+
+    // =============================================================
+    // THE ONE FUNCTION: check the water level and alert if dangerous
+    // =============================================================
+    async function checkWaterLevel() {
+      let data;
+
+      // 1. GET THE DATA
+      if (BOM_API_URL === "") {
+        data = SAMPLE_DATA;                        // no API yet, so use sample data
+      } else {
+        const response = await fetch(BOM_API_URL); // ask the API for data
+        data = await response.json();              // turn the reply into JSON
+      }
+
+      // 2. READ THE WATER LEVEL FROM THE JSON
+      // Sensor e1588 = Mouth of Oxley Creek, Graceville (closest to Yeronga).
+      // The newest row is often "-" because this sensor hasn't reported yet,
+      // so we look through the latest 20 rows and take the first real number.
+      let reading = null;
+      for (const row of data.results) {
+        if (row.e1588 !== "-" && row.e1588 !== null) {
+          reading = row;
+          break;   // found it, stop looking
+        }
+      }
+
+      if (reading === null) {
+        document.getElementById("status").textContent = "No recent reading from the sensor. Trying again soon.";
+        return;
+      }
+
+      const waterLevel = Number(reading.e1588);
+
+      // 3. SHOW IT ON THE PAGE
+      document.getElementById("level").textContent = waterLevel;
+      // Show when the SENSOR took the reading (converted to Brisbane time)
+      document.getElementById("time").textContent = new Date(reading.measured).toLocaleString("en-AU", { timeZone: "Australia/Brisbane" });
+      const status = document.getElementById("status");
+
+      // 4. DECIDE: SAFE OR DANGEROUS?
+      if (waterLevel >= DANGER_LEVEL) {
+        status.className = "danger";
+        status.textContent = "🚨 DANGER – flood level reached in Yeronga!";
+        alert("FloodReady ALERT\n\nWater level is " + waterLevel +
+              " m. Flooding is likely in Yeronga. Stay away from flood water and follow official advice.");
+      } else {
+        status.className = "safe";
+        status.textContent = "✅ Safe – water level is normal.";
+      }
+    }
+
+
+    // =============================================================
+    // START: check once now, then every 10 minutes
+    // =============================================================
+    checkWaterLevel();
+    setInterval(checkWaterLevel, CHECK_EVERY_MINUTES * 60 * 1000);
+  </script>
+
+</body>
+</html>
