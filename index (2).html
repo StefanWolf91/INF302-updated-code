@@ -68,7 +68,7 @@
       // so we look through the latest 20 rows and take the first real number.
       let reading = null;
       for (const row of data.results) {
-        if (row.e1588 !== "-" && row.e1588 !== null) {
+        if (row.e1588 !== "-" && row.e1507 !== null) {
           reading = row;
           break;   // found it, stop looking
         }
@@ -79,7 +79,7 @@
         return;
       }
 
-      const waterLevel = Number(reading.e1588);
+      const waterLevel = Number(reading.e1507);
 
       // 3. SHOW IT ON THE PAGE
       document.getElementById("level").textContent = waterLevel;
